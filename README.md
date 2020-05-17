@@ -146,6 +146,7 @@
 
     미션1. 영문 문장에서 사용된 단어 개수 세기
     미션2. 한글 문장에서 사용된 단어 개수 세기
+    미션3. 정규식 활용해서 URL 추출하기
     ```
     #day4.py
     from flask import Flask, render_template, request
@@ -252,3 +253,148 @@ C:\Users\user\Python_test
 
 (base) PS C:\Users\user\Python_test> code .
 ```
+
+================================================================
+## Day5.크롤링을 좀 더 쉽게 - 2020.05.14
+  * 참고 파일(day5.py + templates html + day5_study.ipynb/day5_ex.ipynb)
+  * 학습 목표 : 다음 영화 주간 목록 추출하기
+  * 학습 내용
+    1. BeautifulSoup(bs4) 라이브러리
+      BeautifulSoup Parser
+      * html.parser : html문서 트리 형태로 구조화
+      * parent, child : 원하는 정보에 쉽게 접근
+      * css selector : 원하는 정보에 쉽게 접근
+      ```
+      # 활용
+      from bs4 import BeautifulSoup
+
+      soup = BeautifulSoup (response.text, 'html.parser')
+      soup = BeautifulSoup(response.content, 'html.parser')
+
+      # a 태그 추출하기
+      print(soup.a)
+
+      # a 태그의 text 부분 추출하기
+      print(soup.a.get_text())
+
+      # attribute 추출하기(dictionary로 생각하면 됨)
+      print(soup.a['href'])
+      ```
+    2. datetime 라이브러리
+    datetime 주요 함수
+    * date.today() : 오늘
+    * datetime.now() : 현재시간
+    * create 함수
+    * strftime() : 날짜의 문자열 포맷 출력(%y%m%d%H%M%S %ww%a%A)
+    * timedelta() : 시간의 변화
+
+    ```
+    # 활용
+    from datetime import date, datetime, timedelta
+    today = date.today()
+    now = datetime.now()
+    yesterday = date(2020, 5, 17)
+    prev_28 = date.today() - timedelta(days=7*4)
+    print(prev_28.strftime('%Y%m%d'))
+    ```
+
+---------------------------------------------------------------------
+## Day5. 과제
+* 기본 틀(day5.py + movies.html)
+  ```
+  # day5.py
+  from flask import Flask, render_template, request
+  import re
+  import requests
+  from bs4 import BeautifulSoup
+  from datetime import date, timedelta
+
+  app = Flask(__name__, template_folder='templates')
+  app.env = 'development'
+  app.dabug = True
+
+  @app.route('/')
+  def index():
+      return "Welcome, class day 5"
+
+  app.run(port=5000)
+
+  ```
+  ```
+  # movies.html
+  <h1>다음 인기 영화 목록 추출</h1>
+  <form action ="/movies" method="post">
+      <input type="text" name="weeks" placeholder="weeks">
+      <input type="submit">
+  </form>
+
+  {% for ss in soup %}
+  <hr>
+
+  <h3>{{ loop.index }} 주전</h3>
+  <div>
+      {% for s in ss %}
+      <ul>
+          <li><strong>{{ loop.index }}위</strong></li>
+          <li>제목: {{ s['title'] }}</li>
+          <li>평점: {{ s['rating'] }}</li>
+          <li>관객수: {{ s['visitors'] }}</li>
+          <li>개봉일: {{ s['opened'] }}</li>
+      </ul>
+      {% endfor %}
+  </div>
+  {% endfor %}
+
+  ```
+    * 실전 과제
+
+    미션1. 다음 영화 주간 목록 추출하기
+    ```
+    #day5.py
+    # 다음 영화 주간 목록 추출하기
+    from flask import Flask, render_template, request
+    import re
+    import requests
+    from bs4 import BeautifulSoup
+    from datetime import date, timedelta
+
+    app = Flask(__name__, template_folder='templates')
+    app.env = 'development'
+    app.dabug = True
+
+    @app.route('/')
+    def index():
+        return "Welcome, class day 5"
+
+
+    @app.route('/movies', methods=['get', 'post'])
+    def movies():
+        if request.method == "GET":
+            return render_template('movies.html')
+
+        def get_movies(week_date=''):
+            url = 'https://movie.daum.net/boxoffice/weekly'
+            query = {'startDate': week_date}
+            res = requests.get(url, params=query)# 나는 클라이언트고 서버한테 ?뒤에 완성해서 보내기(params)
+            #https://movie.daum.net/boxoffice/weekly?startDate=2014-02-04
+            soup = BeautifulSoup(res.content, 'html.parser')
+
+            movies = [dict(
+                title=tag.strong.a.get_text(),
+                rating=tag.em.get_text(),
+                visitors=re.findall('주간관객 (\d+)명', tag.get_text()),
+                opened=re.findall('([0-9\.]+) 개봉', tag.get_text()),
+            ) for tag in soup.select('.desc_boxthumb')] # 검사에서 해당 문자열 찾기
+            return movies
+
+        weeks = request.form.get('weeks')
+        weeks = [date.today() - timedelta(weeks=i+1)
+            for i in range(int(weeks))]
+        movies = [get_movies(w.strftime('%Y%m%d')) for w in weeks]
+        #print(movies)
+        return render_template('movies.html', soup=movies)
+
+
+    app.run(port=5000)
+    ```
+==================================================================

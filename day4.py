@@ -1,3 +1,4 @@
+# 영어/한글 단어 카운트 하기 + 정규식 활용해서 URL 추출하기
 from flask import Flask, render_template, request
 from konlpy.tag import Kkma
 import requests
